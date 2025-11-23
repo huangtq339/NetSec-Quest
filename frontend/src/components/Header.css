@@ -1,0 +1,90 @@
+/* Header组件样式 */
+.header-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 64px;
+  padding: 0 24px;
+  background-color: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+  color: #1890ff;
+}
+
+.logo-title {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  color: #1890ff;
+}
+
+.logo-icon {
+  margin-right: 8px;
+}
+
+.nav-menu {
+  flex: 1;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background-color 0.3s;
+}
+
+.user-info:hover {
+  background-color: #f0f0f0;
+}
+
+.username {
+  font-weight: 500;
+  color: #333;
+}
+
+.points {
+  font-size: 12px;
+  color: #faad14;
+  background-color: #fffbe6;
+  padding: 2px 6px;
+  border-radius: 10px;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .header-container {
+    padding: 0 16px;
+  }
+  
+  .nav-menu {
+    display: none;
+  }
+  
+  .username {
+    display: none;
+  }
+  
+  .points {
+    display: none;
+  }
+}

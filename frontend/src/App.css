@@ -1,0 +1,41 @@
+/* App组件特定样式 */
+.app-layout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* 响应式布局调整 */
+@media (max-width: 576px) {
+  .app-layout .ant-layout-sider {
+    position: fixed;
+    height: 100vh;
+    z-index: 999;
+  }
+  
+  .app-layout .ant-layout-content {
+    margin-left: 0;
+    padding: 16px;
+  }
+}
+
+/* 页面过渡动画 */
+.page-transition {
+  transition: opacity 0.3s ease;
+}
+
+.page-transition-enter {
+  opacity: 0;
+}
+
+.page-transition-enter-active {
+  opacity: 1;
+}
+
+.page-transition-exit {
+  opacity: 1;
+}
+
+.page-transition-exit-active {
+  opacity: 0;
+}

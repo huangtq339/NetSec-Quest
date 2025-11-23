@@ -1,0 +1,187 @@
+version: '3.8'
+
+services:
+  # 后端API服务 (暂时注释掉，避免构建问题)
+  # backend:
+  #   build:
+  #     context: ./backend
+  #     dockerfile: Dockerfile
+  #   ports:
+  #     - "5000:5000"
+  #   environment:
+  #     - NODE_ENV=development
+  #     - DB_HOST=mysql
+  #     - DB_USER=root
+  #     - DB_PASSWORD=password
+  #     - DB_NAME=cybersecurity_skill_tree
+  #     - MONGO_URI=mongodb://mongo:27017/skilltree
+  #     - REDIS_URL=redis://redis:6379
+  #     - JWT_SECRET=your_jwt_secret_key
+  #   volumes:
+  #     - ./backend:/app
+  #   depends_on:
+  #     - mysql
+  #     - mongo
+  #     - redis
+  #   networks:
+  #     - app-network
+
+  # 前端服务 (暂时注释掉，避免构建问题)
+  # frontend:
+  #   build:
+  #     context: ./frontend
+  #     dockerfile: Dockerfile
+  #   ports:
+  #     - "3000:3000"
+  #   volumes:
+  #     - ./frontend:/app
+  #   environment:
+  #     - REACT_APP_API_URL=http://localhost:5000/api
+  #   networks:
+  #     - app-network
+
+  # MySQL数据库
+  mysql:
+    image: mysql:8.0
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=password
+      - MYSQL_DATABASE=cybersecurity_skill_tree
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./config/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - app-network
+
+  # MongoDB数据库
+  mongo:
+    image: mongo:6.0
+    ports:
+      - "27018:27017"
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - app-network
+
+  # Redis缓存
+  redis:
+    image: redis:7.0
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - app-network
+
+  # 靶机管理服务 (暂时注释掉，目录为空)
+  # vm-manager:
+  #   build:
+  #     context: ./docker-scripts
+  #     dockerfile: vm-manager.Dockerfile
+  #   privileged: true
+  #   volumes:
+  #     - /var/run/docker.sock:/var/run/docker.sock
+  #     - ./docker-scripts/vm-templates:/templates
+  #   ports:
+  #     - "5001:5001"
+  #   networks:
+  #     - app-network
+
+  # Web安全靶机 - 基础环境 (暂时注释掉，避免构建问题)
+  # web-vuln-basic:
+  #   build:
+  #     context: ./targets/web-vuln-basic
+  #     dockerfile: Dockerfile
+  #   container_name: web-vuln-basic
+  #   ports:
+  #     - "8001:80"
+  #   networks:
+  #     - app-network
+  #   restart: on-failure
+  #   # 限制资源和权限
+  #   mem_limit: 512m
+  #   cpus: 0.5
+  #   security_opt:
+  #     - no-new-privileges:true
+  #   read_only: true
+  #   tmpfs:
+  #     - /tmp
+
+  # Web安全靶机 - SQL注入环境 (暂时注释掉，避免构建问题)
+  # web-vuln-sql:
+  #   build:
+  #     context: ./targets/web-vuln-sql
+  #     dockerfile: Dockerfile
+  #   container_name: web-vuln-sql
+  #   ports:
+  #     - "8002:80"
+  #   networks:
+  #     - app-network
+  #   restart: on-failure
+  #   # 限制资源和权限
+  #   mem_limit: 512m
+  #   cpus: 0.5
+  #   security_opt:
+  #     - no-new-privileges:true
+
+  # Web安全靶机 - XSS环境 (暂时注释掉，目录不存在)
+  # web-vuln-xss:
+  #   build:
+  #     context: ./targets/web-vuln-xss
+  #     dockerfile: Dockerfile
+  #   container_name: web-vuln-xss
+  #   ports:
+  #     - "8003:80"
+  #   networks:
+  #     - app-network
+  #   restart: on-failure
+  #   # 限制资源和权限
+  #   mem_limit: 512m
+  #   cpus: 0.5
+  #   security_opt:
+  #     - no-new-privileges:true
+
+  # 网络安全靶机 - 基础环境 (暂时注释掉，目录不存在)
+  # network-vuln-basic:
+  #   build:
+  #     context: ./targets/network-vuln-basic
+  #     dockerfile: Dockerfile
+  #   container_name: network-vuln-basic
+  #   ports:
+  #     - "8004:80"
+  #   networks:
+  #     - app-network
+  #   restart: on-failure
+  #   # 限制资源和权限
+  #   mem_limit: 256m
+  #   cpus: 0.25
+  #   security_opt:
+  #     - no-new-privileges:true
+
+  # 系统安全靶机 (暂时注释掉，目录不存在)
+  # system-vuln-basic:
+  #   build:
+  #     context: ./targets/system-vuln-basic
+  #     dockerfile: Dockerfile
+  #   container_name: system-vuln-basic
+  #   ports:
+  #     - "8005:80"
+  #     - "2222:22"
+  #   networks:
+  #     - app-network
+  #   restart: on-failure
+  #   # 限制资源和权限
+  #   mem_limit: 512m
+  #   cpus: 0.5
+  #   security_opt:
+  #     - no-new-privileges:true
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  mysql-data:
+  mongo-data:
+  redis-data:
