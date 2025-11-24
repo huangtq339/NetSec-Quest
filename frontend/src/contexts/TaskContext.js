@@ -8,7 +8,7 @@ const TaskContext = createContext();
 
 // 任务Provider组件
 export const TaskProvider = ({ children }) => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const [tasks, setTasks] = useState([]);
   const [currentTask, setCurrentTask] = useState(null);
   const [taskHistory, setTaskHistory] = useState([]);
@@ -24,7 +24,11 @@ export const TaskProvider = ({ children }) => {
       return response.data;
     } catch (error) {
       console.error('获取任务列表失败:', error);
-      message.error('获取任务列表失败');
+      if (error.response?.status === 401) {
+        message.error('会话已过期，请重新登录');
+      } else {
+        message.error('获取任务列表失败，请稍后重试');
+      }
       return [];
     } finally {
       setIsLoading(false);
@@ -40,7 +44,11 @@ export const TaskProvider = ({ children }) => {
       return response.data;
     } catch (error) {
       console.error('获取任务详情失败:', error);
-      message.error('获取任务详情失败');
+      if (error.response?.status === 401) {
+        message.error('会话已过期，请重新登录');
+      } else {
+        message.error('获取任务详情失败，请稍后重试');
+      }
       return null;
     } finally {
       setIsLoading(false);
@@ -65,7 +73,11 @@ export const TaskProvider = ({ children }) => {
       return response.data;
     } catch (error) {
       console.error('提交任务失败:', error);
-      message.error('提交任务失败，请稍后重试');
+      if (error.response?.status === 401) {
+        message.error('会话已过期，请重新登录');
+      } else {
+        message.error('提交任务失败，请稍后重试');
+      }
       return null;
     } finally {
       setIsLoading(false);
@@ -81,6 +93,9 @@ export const TaskProvider = ({ children }) => {
       return response.data;
     } catch (error) {
       console.error('获取任务历史失败:', error);
+      if (error.response?.status === 401) {
+        message.error('会话已过期，请重新登录');
+      }
       return [];
     } finally {
       setIsLoading(false);
@@ -94,6 +109,9 @@ export const TaskProvider = ({ children }) => {
       return response.data;
     } catch (error) {
       console.error('获取任务统计失败:', error);
+      if (error.response?.status === 401) {
+        message.error('会话已过期，请重新登录');
+      }
       return {};
     }
   };
@@ -105,6 +123,9 @@ export const TaskProvider = ({ children }) => {
       return response.data;
     } catch (error) {
       console.error('获取已完成任务失败:', error);
+      if (error.response?.status === 401) {
+        message.error('会话已过期，请重新登录');
+      }
       return [];
     }
   };
@@ -116,7 +137,13 @@ export const TaskProvider = ({ children }) => {
       return response.data;
     } catch (error) {
       console.error('获取提示失败:', error);
-      message.error('获取提示失败，可能提示次数已用完');
+      if (error.response?.status === 401) {
+        message.error('会话已过期，请重新登录');
+      } else if (error.response?.status === 429) {
+        message.error('提示次数已用完');
+      } else {
+        message.error('获取提示失败，请稍后重试');
+      }
       return { hint: null, remainingHints: 0 };
     }
   };
@@ -128,6 +155,9 @@ export const TaskProvider = ({ children }) => {
       return response.data;
     } catch (error) {
       console.error('获取推荐任务失败:', error);
+      if (error.response?.status === 401) {
+        message.error('会话已过期，请重新登录');
+      }
       return null;
     }
   };

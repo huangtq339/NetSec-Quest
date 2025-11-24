@@ -8,7 +8,7 @@ const SkillTreeContext = createContext();
 
 // 技能树Provider组件
 export const SkillTreeProvider = ({ children }) => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const [courses, setCourses] = useState([]);
   const [skillTree, setSkillTree] = useState(null);
   const [userProgress, setUserProgress] = useState({});
@@ -19,12 +19,12 @@ export const SkillTreeProvider = ({ children }) => {
   const loadCourses = async () => {
     try {
       setIsLoading(true);
-      // 修改API路径，确保连接到正确的后端服务
-      const response = await axios.get('http://localhost:5000/api/skill-tree/courses');
+      // 使用相对路径，确保与axios默认配置一致
+      const response = await axios.get('/api/skill-tree/courses');
       setCourses(response.data);
     } catch (error) {
       console.error('加载课程列表失败:', error);
-      message.error('加载课程列表失败');
+      message.error('加载课程列表失败，请稍后重试');
     } finally {
       setIsLoading(false);
     }
@@ -56,15 +56,18 @@ export const SkillTreeProvider = ({ children }) => {
   // 加载用户进度
   const loadUserProgress = async (courseId) => {
     try {
+      // 使用axios默认的Authorization头配置，不再直接从localStorage获取token
       const response = await axios.get('/api/skill-tree/progress', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
+        params: { courseId } // 添加courseId参数
       });
       setUserProgress(response.data);
       return response.data;
     } catch (error) {
       console.error('加载用户进度失败:', error);
+      if (error.response?.status === 401) {
+        // 未授权错误，可能需要重新登录
+        message.error('会话已过期，请重新登录');
+      }
       return {};
     }
   };
@@ -72,11 +75,8 @@ export const SkillTreeProvider = ({ children }) => {
   // 更新节点进度
   const updateNodeProgress = async (nodeId, progress) => {
     try {
-      await axios.put(`/api/skill-tree/nodes/${nodeId}/progress`, { progress }, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
+      // 使用axios默认的Authorization头配置
+      await axios.put(`/api/skill-tree/nodes/${nodeId}/progress`, { progress });
       
       // 更新本地进度状态
       setUserProgress(prev => ({
@@ -88,7 +88,11 @@ export const SkillTreeProvider = ({ children }) => {
       return true;
     } catch (error) {
       console.error('更新节点进度失败:', error);
-      message.error('更新进度失败');
+      if (error.response?.status === 401) {
+        message.error('会话已过期，请重新登录');
+      } else {
+        message.error('更新进度失败，请稍后重试');
+      }
       return false;
     }
   };
@@ -96,15 +100,16 @@ export const SkillTreeProvider = ({ children }) => {
   // 获取节点任务列表
   const getNodeTasks = async (nodeId) => {
     try {
-      const response = await axios.get(`/api/skills/nodes/${nodeId}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
+      // 使用axios默认的Authorization头配置
+      const response = await axios.get(`/api/skills/nodes/${nodeId}`);
       return response.data;
     } catch (error) {
       console.error('获取节点任务失败:', error);
-      message.error('获取任务列表失败');
+      if (error.response?.status === 401) {
+        message.error('会话已过期，请重新登录');
+      } else {
+        message.error('获取任务列表失败，请稍后重试');
+      }
       return [];
     }
   };
@@ -112,14 +117,14 @@ export const SkillTreeProvider = ({ children }) => {
   // 获取推荐学习节点
   const getRecommendedNodes = async () => {
     try {
-      const response = await axios.get('/api/skills/recommended', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
+      // 使用axios默认的Authorization头配置
+      const response = await axios.get('/api/skills/recommended');
       return response.data;
     } catch (error) {
       console.error('获取推荐节点失败:', error);
+      if (error.response?.status === 401) {
+        message.error('会话已过期，请重新登录');
+      }
       return [];
     }
   };
@@ -127,14 +132,14 @@ export const SkillTreeProvider = ({ children }) => {
   // 获取用户整体进度
   const getUserOverallProgress = async () => {
     try {
-      const response = await axios.get('/api/skills/progress', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
+      // 使用axios默认的Authorization头配置
+      const response = await axios.get('/api/skills/progress');
       return response.data;
     } catch (error) {
       console.error('获取整体进度失败:', error);
+      if (error.response?.status === 401) {
+        message.error('会话已过期，请重新登录');
+      }
       return { completed: 0, total: 0, percentage: 0 };
     }
   };

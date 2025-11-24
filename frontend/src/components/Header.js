@@ -93,13 +93,10 @@ const Header = () => {
             </Badge>
             <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
               <div className="user-info">
-                <Avatar icon={<UserOutlined />} src={user?.avatar}>
-                  {user?.username?.[0]?.toUpperCase() || 'U'}
+                <Avatar>
+                  {user?.name?.slice(-1) || user?.username?.slice(-1) || 'U'}
                 </Avatar>
                 <span className="username">{user?.username || '用户'}</span>
-                {user?.points && (
-                  <span className="points">{user.points} 积分</span>
-                )}
               </div>
             </Dropdown>
           </>

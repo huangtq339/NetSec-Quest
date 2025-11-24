@@ -45,10 +45,8 @@ module.exports = {
     proxy: {
       '/api': {
         target: 'http://localhost:5000',
-        changeOrigin: true,
-        pathRewrite: {
-          '^/api': ''
-        }
+        changeOrigin: true
+        // 移除pathRewrite，保持/api前缀
       }
     }
   }
