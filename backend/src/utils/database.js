@@ -15,7 +15,9 @@ const createMySQLPool = async () => {
       port: config.database.mysql.port,
       connectionLimit: config.database.mysql.connectionLimit,
       waitForConnections: true,
-      queueLimit: 0
+      queueLimit: 0,
+      ssl: { rejectUnauthorized: false },
+      allowPublicKeyRetrieval: true
     });
 
     // 测试连接

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Layout, Menu, Avatar, Dropdown, Button, Badge, Typography, Space } from 'antd';
 import { UserOutlined, BellOutlined, HomeOutlined, TrophyOutlined, LogoutOutlined, SettingOutlined, BookOutlined } from '@ant-design/icons';
 import { Link, useNavigate } from 'react-router-dom';
@@ -11,6 +11,41 @@ const { Title } = Typography;
 const Header = () => {
   const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
+  
+  // 调试：打印用户数据结构和头像显示相关字段
+  useEffect(() => {
+    if (user) {
+      // 找出可用的姓名字段
+    }
+  }, [user]);
+  
+  // 查找可用的姓名字段函数
+  const findAvailableName = (userData) => {
+    // 优先使用name字段（可能来自中文姓名）
+    if (userData?.name && typeof userData.name === 'string' && userData.name.trim()) {
+      return userData.name;
+    }
+    // 也可以检查其他可能包含姓名的字段
+    if (userData?.fullName && typeof userData.fullName === 'string' && userData.fullName.trim()) {
+      return userData.fullName;
+    }
+    // 检查中文姓名可能的其他字段名
+    if (userData?.chineseName && typeof userData.chineseName === 'string' && userData.chineseName.trim()) {
+      return userData.chineseName;
+    }
+    // 最后使用username作为后备
+    if (userData?.username && typeof userData.username === 'string') {
+      return userData.username;
+    }
+    return null;
+  };
+  
+  // 获取头像显示字符
+  const getAvatarCharacter = (userData) => {
+    const displayName = findAvailableName(userData);
+    // 如果有显示名称，返回最后一个字符；否则返回默认的'U'
+    return displayName ? displayName.slice(-1) : 'U';
+  };
   
   // 导航菜单项配置
   const menuItems = [
@@ -94,9 +129,9 @@ const Header = () => {
             <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
               <div className="user-info">
                 <Avatar>
-                  {user?.name?.slice(-1) || user?.username?.slice(-1) || 'U'}
+                  {getAvatarCharacter(user)}
                 </Avatar>
-                <span className="username">{user?.username || '用户'}</span>
+                <span className="username">{user?.studentId || '用户'}</span>
               </div>
             </Dropdown>
           </>

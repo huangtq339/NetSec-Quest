@@ -15,8 +15,31 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const initAuth = async () => {
       try {
-        // 先尝试从localStorage获取token（兼容旧方式）
-        let token = localStorage.getItem('token');
+        let token = null;
+        
+        // 先检查sessionStorage中的token（会话登录，优先保证刷新页面不退出）
+        token = sessionStorage.getItem('token');
+        
+        // 如果sessionStorage没有token，再检查localStorage（记住我模式）
+        if (!token) {
+          const localStorageToken = localStorage.getItem('token');
+          const tokenExpiry = localStorage.getItem('tokenExpiry');
+          
+          if (localStorageToken && tokenExpiry) {
+            // 检查token是否过期
+            const expiryDate = new Date(tokenExpiry);
+            const currentDate = new Date();
+            
+            if (currentDate <= expiryDate) {
+              // token未过期，使用它
+              token = localStorageToken;
+            } else {
+              // token已过期，清除localStorage中的token
+              localStorage.removeItem('token');
+              localStorage.removeItem('tokenExpiry');
+            }
+          }
+        }
         
         // 即使没有token，也要确保Authorization头被正确设置或移除
         if (token) {
@@ -38,14 +61,30 @@ export const AuthProvider = ({ children }) => {
               }
               setIsAuthenticated(true);
             } else {
-              throw new Error('无效的响应格式');
+              // 服务端返回失败但token可能还有效，保留token继续尝试
+              console.warn('认证信息验证失败但保留token继续尝试');
+              setIsAuthenticated(true); // 先设置为已认证，避免页面跳转
+              // 不清除token，允许用户继续使用
             }
           } catch (apiError) {
-            console.error('获取用户信息失败:', apiError);
-            // token无效或过期，清除本地存储
-            localStorage.removeItem('token');
-            delete axios.defaults.headers.common['Authorization'];
-            setIsAuthenticated(false);
+            // 隐藏内部API错误，不向用户显示
+            console.error('获取用户信息API错误:', apiError);
+            
+            // 只清除token的情况：明确的401 Unauthorized响应
+            if (apiError.response && apiError.response.status === 401) {
+              // 只有当服务器明确返回401时才清除token
+              localStorage.removeItem('token');
+              localStorage.removeItem('tokenExpiry');
+              sessionStorage.removeItem('token');
+              delete axios.defaults.headers.common['Authorization'];
+              setIsAuthenticated(false);
+            } else {
+              // 其他错误（如500服务器错误）不清除token，保留登录状态
+              // 静默处理内部错误，不向用户显示任何提示
+              console.warn('内部服务器错误，保持登录状态');
+              setIsAuthenticated(true); // 保留登录状态
+              // 不清除token，允许用户继续使用
+            }
           }
         } else {
           // 如果没有token，确保Authorization头被移除
@@ -57,6 +96,8 @@ export const AuthProvider = ({ children }) => {
         console.error('认证初始化失败:', error);
         // 清除所有认证信息
         localStorage.removeItem('token');
+        localStorage.removeItem('tokenExpiry');
+        sessionStorage.removeItem('token');
         delete axios.defaults.headers.common['Authorization'];
         setIsAuthenticated(false);
       } finally {
@@ -98,10 +139,33 @@ export const AuthProvider = ({ children }) => {
         throw new Error('登录成功但未返回用户数据');
       }
 
-      // 如果有token返回，存储到localStorage（兼容旧方式）
+      // 存储token逻辑优化：
+      // 1. 无论是否勾选记住我，都使用sessionStorage存储token（确保刷新页面不退出登录）
+      // 2. 如果勾选了记住我，同时使用localStorage存储token（实现重新打开浏览器自动登录）
       if (token) {
-        localStorage.setItem('token', token);
-        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        try {
+          // 始终使用sessionStorage，确保刷新页面不会退出登录
+          sessionStorage.setItem('token', token);
+          console.log('Token已存储到sessionStorage');
+          
+          // 如果勾选了记住我，同时使用localStorage实现持久化登录（30天）
+          if (credentials.rememberMe) {
+            // 存储token和过期时间（30天后）
+            const expiryDate = new Date();
+            expiryDate.setDate(expiryDate.getDate() + 30);
+            localStorage.setItem('token', token);
+            localStorage.setItem('tokenExpiry', expiryDate.toISOString());
+            console.log('Token已存储到localStorage（记住我模式）');
+          }
+          
+          // 确保Authorization头被正确设置
+          axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+          console.log('Authorization头已设置');
+        } catch (storageError) {
+          console.error('Token存储失败:', storageError);
+          // 即使存储失败，也要设置Authorization头，让当前会话能正常工作
+          axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        }
       }
 
       setUser(userData);
@@ -158,8 +222,10 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.error('登出请求失败:', error);
     } finally {
-      // 清除本地存储和状态
+      // 清除所有存储和状态
       localStorage.removeItem('token');
+      localStorage.removeItem('tokenExpiry');
+      sessionStorage.removeItem('token');
       delete axios.defaults.headers.common['Authorization'];
       setUser(null);
       setIsAuthenticated(false);
@@ -233,10 +299,33 @@ export const AuthProvider = ({ children }) => {
         throw new Error('登录成功但未返回用户数据');
       }
 
-      // 如果有token返回，存储到localStorage（兼容旧方式）
+      // 存储token逻辑优化：
+      // 1. 无论是否勾选记住我，都使用sessionStorage存储token（确保刷新页面不退出登录）
+      // 2. 如果勾选了记住我，同时使用localStorage存储token（实现重新打开浏览器自动登录）
       if (token) {
-        localStorage.setItem('token', token);
-        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        try {
+          // 始终使用sessionStorage，确保刷新页面不会退出登录
+          sessionStorage.setItem('token', token);
+          console.log('Token已存储到sessionStorage');
+          
+          // 如果勾选了记住我，同时使用localStorage实现持久化登录（30天）
+          if (credentials.rememberMe) {
+            // 存储token和过期时间（30天后）
+            const expiryDate = new Date();
+            expiryDate.setDate(expiryDate.getDate() + 30);
+            localStorage.setItem('token', token);
+            localStorage.setItem('tokenExpiry', expiryDate.toISOString());
+            console.log('Token已存储到localStorage（记住我模式）');
+          }
+          
+          // 确保Authorization头被正确设置
+          axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+          console.log('Authorization头已设置');
+        } catch (storageError) {
+          console.error('Token存储失败:', storageError);
+          // 即使存储失败，也要设置Authorization头，让当前会话能正常工作
+          axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        }
       }
 
       setUser(userData);

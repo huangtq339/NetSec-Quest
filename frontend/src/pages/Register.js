@@ -37,6 +37,7 @@ const Register = () => {
         name: values.name,
         email: values.email,
         className: values.className,
+        interest: values.interest || 'Unknown',
         password: values.password,
         confirmPassword: values.confirmPassword,
         role: roleMap[values.role] || 'student'
