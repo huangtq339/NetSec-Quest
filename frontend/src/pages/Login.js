@@ -27,7 +27,7 @@ const Login = () => {
       });
       
       if (success) {
-        navigate('/dashboard');
+        navigate('/');
       }
     } catch (error) {
       // 根据后端返回的错误信息显示不同提示
@@ -78,7 +78,7 @@ const Login = () => {
       });
       
       if (success) {
-        navigate('/dashboard');
+        navigate('/');
       }
     } catch (error) {
       message.error(error.response?.data?.message || '登录失败，请稍后重试');

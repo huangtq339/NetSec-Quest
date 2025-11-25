@@ -1,243 +1,280 @@
-const { getMySQLPool } = require('../utils/database');
+const { getDatabaseConnection } = require('../utils/database');
 
+/**
+ * 技能树模型 - 合并版
+ * 整合了原SkillTreeModel和SkillTreeMySQLModel的功能
+ */
 class SkillTreeModel {
-  constructor() {
-    this.db = null;
+  constructor(db = null) {
+    // 如果没有传入数据库连接，使用默认连接
+    this.db = db;
   }
 
-  // 获取数据库连接
+  /**
+   * 获取数据库连接
+   */
   async getConnection() {
     if (!this.db) {
-      this.db = getMySQLPool();
+      return await getDatabaseConnection();
     }
     return this.db;
   }
 
-  // 获取技能树节点
-  async getNodes() {
-    try {
-      const db = await this.getConnection();
-      const [rows] = await db.execute('SELECT * FROM skill_nodes');
-      return rows;
-    } catch (error) {
-      console.error('Error getting skill nodes:', error);
-      throw error;
-    }
+  /**
+   * 获取所有课程
+   */
+  async getCourses() {
+    const db = await this.getConnection();
+    const [courses] = await db.execute('SELECT * FROM courses ORDER BY id');
+    return courses;
   }
 
-  // 获取单个节点
-  async getNodeById(nodeId) {
-    try {
-      const db = await this.getConnection();
-      const [rows] = await db.execute('SELECT * FROM skill_nodes WHERE node_id = ?', [nodeId]);
-      return rows.length > 0 ? rows[0] : null;
-    } catch (error) {
-      console.error('Error getting skill node by id:', error);
-      throw error;
-    }
+  /**
+   * 获取技能节点信息
+   */
+  async getSkillNode(nodeId) {
+    const db = await this.getConnection();
+    const [nodes] = await db.execute('SELECT * FROM skill_nodes WHERE id = ?', [nodeId]);
+    return nodes.length > 0 ? nodes[0] : null;
   }
 
-  // 获取节点的子节点
-  async getNodeChildren(nodeId) {
-    try {
-      const db = await this.getConnection();
-      const [rows] = await db.execute('SELECT * FROM skill_nodes WHERE parent_id = ?', [nodeId]);
-      return rows;
-    } catch (error) {
-      console.error('Error getting node children:', error);
-      throw error;
+  /**
+   * 构建技能树结构
+   */
+  async buildSkillTree(courseId) {
+    const db = await this.getConnection();
+    
+    // 获取指定课程的所有节点
+    const [nodes] = await db.execute(
+      'SELECT * FROM skill_nodes WHERE course_id = ? ORDER BY id', 
+      [courseId]
+    );
+
+    // 构建树结构
+    const nodeMap = {};
+    let rootNodes = [];
+
+    // 首先创建所有节点的映射
+    nodes.forEach(node => {
+      nodeMap[node.id] = { ...node, children: [] };
+    });
+
+    // 然后构建父子关系
+    nodes.forEach(node => {
+      if (!node.parent_id) {
+        rootNodes.push(nodeMap[node.id]);
+      } else if (nodeMap[node.parent_id]) {
+        nodeMap[node.parent_id].children.push(nodeMap[node.id]);
+      }
+    });
+
+    // 如果只有一个根节点，直接返回该节点
+    if (rootNodes.length === 1) {
+      return rootNodes[0];
     }
+
+    // 否则返回根节点数组
+    return { id: 'root', name: '技能树', children: rootNodes };
   }
 
-  // 获取技能树
-  async getSkillTree() {
-    try {
-      const db = await this.getConnection();
-      const [nodes] = await db.execute('SELECT * FROM skill_nodes');
+  /**
+   * 获取用户技能树进度
+   */
+  async getUserSkillProgress(userId, courseId = null) {
+    const db = await this.getConnection();
+    
+    // 如果指定了课程ID，获取该课程的技能树
+    if (courseId) {
+      const skillTree = await this.buildSkillTree(courseId);
       
-      // 构建树结构
-      const nodeMap = {};
-      const rootNodes = [];
-      
-      // 首先创建所有节点的映射
-      nodes.forEach(node => {
-        node.children = [];
-        nodeMap[node.node_id] = node;
-      });
-      
-      // 然后构建树结构
-      nodes.forEach(node => {
-        if (node.parent_id === null || node.parent_id === 0) {
-          rootNodes.push(node);
-        } else if (nodeMap[node.parent_id]) {
-          nodeMap[node.parent_id].children.push(node);
-        }
-      });
-      
-      return rootNodes;
-    } catch (error) {
-      console.error('Error getting skill tree:', error);
-      throw error;
-    }
-  }
-
-  // 获取用户技能进度
-  async getUserProgress(userId) {
-    try {
-      const db = await this.getConnection();
-      const [rows] = await db.execute(
-        'SELECT * FROM user_progress WHERE user_id = ?',
+      // 获取用户在该课程的进度
+      const [progress] = await db.execute(
+        'SELECT node_id, status, score, completed_at FROM user_progress WHERE user_id = ?',
         [userId]
       );
       
-      // 转换为映射便于查找
+      // 创建进度映射
       const progressMap = {};
-      rows.forEach(progress => {
-        progressMap[progress.node_id] = progress;
+      progress.forEach(item => {
+        progressMap[item.node_id] = item;
       });
       
-      return progressMap;
-    } catch (error) {
-      console.error('Error getting user progress:', error);
-      throw error;
-    }
-  }
-
-  // 更新节点进度
-  async updateNodeProgress(userId, nodeId, status, score = null) {
-    try {
-      const db = await this.getConnection();
+      // 递归添加进度信息到技能树节点
+      const addProgressToNodes = (nodes) => {
+        nodes.forEach(node => {
+          if (progressMap[node.id]) {
+            node.userProgress = progressMap[node.id];
+          } else {
+            // 未开始的节点默认为locked
+            node.userProgress = { status: 'locked' };
+          }
+          
+          if (node.children && node.children.length > 0) {
+            addProgressToNodes(node.children);
+          }
+        });
+      };
       
-      // 检查是否已存在进度记录
-      const [existing] = await db.execute(
-        'SELECT * FROM user_progress WHERE user_id = ? AND node_id = ?',
-        [userId, nodeId]
-      );
-      
-      if (existing.length > 0) {
-        // 更新现有记录
-        await db.execute(
-          'UPDATE user_progress SET status = ?, score = ?, updated_at = NOW() WHERE user_id = ? AND node_id = ?',
-          [status, score, userId, nodeId]
-        );
+      if (skillTree.children) {
+        addProgressToNodes(skillTree.children);
       } else {
-        // 创建新记录
-        await db.execute(
-          'INSERT INTO user_progress (user_id, node_id, status, score, created_at, updated_at) VALUES (?, ?, ?, ?, NOW(), NOW())',
-          [userId, nodeId, status, score]
-        );
+        // 处理单个根节点的情况
+        if (progressMap[skillTree.id]) {
+          skillTree.userProgress = progressMap[skillTree.id];
+        } else {
+          skillTree.userProgress = { status: 'locked' };
+        }
       }
       
-      return true;
-    } catch (error) {
-      console.error('Error updating node progress:', error);
-      throw error;
+      return skillTree;
     }
+    
+    // 如果没有指定课程ID，返回所有课程的进度概览
+    return this.getUserOverallProgress(userId);
   }
 
-  // 获取课程信息
-  async getCourses() {
-    try {
-      const db = await this.getConnection();
-      const [rows] = await db.execute('SELECT * FROM courses');
-      return rows;
-    } catch (error) {
-      console.error('Error getting courses:', error);
-      throw error;
-    }
+  /**
+   * 获取用户整体进度统计
+   */
+  async getUserOverallProgress(userId) {
+    const db = await this.getConnection();
+    
+    // 计算整体完成情况
+    const [stats] = await db.execute(
+      `SELECT 
+        COUNT(DISTINCT sn.id) as total_nodes,
+        SUM(CASE WHEN up.status = 'completed' THEN 1 ELSE 0 END) as completed_nodes,
+        ROUND((SUM(CASE WHEN up.status = 'completed' THEN 1 ELSE 0 END) * 100.0 / COUNT(DISTINCT sn.id)), 2) as completion_percentage
+      FROM skill_nodes sn
+      LEFT JOIN user_progress up ON sn.id = up.node_id AND up.user_id = ?`,
+      [userId]
+    );
+    
+    return stats[0];
   }
 
-  // 获取课程节点
-  async getCourseNodes(courseId) {
-    try {
-      const db = await this.getConnection();
-      const [rows] = await db.execute(
-        'SELECT sn.* FROM skill_nodes sn JOIN course_nodes cn ON sn.node_id = cn.node_id WHERE cn.course_id = ?',
-        [courseId]
-      );
-      return rows;
-    } catch (error) {
-      console.error('Error getting course nodes:', error);
-      throw error;
-    }
+  /**
+   * 获取节点任务列表
+   */
+  async getNodeTasks(nodeId) {
+    const db = await this.getConnection();
+    
+    const [tasks] = await db.execute(
+      `SELECT t.id, t.title, t.description, t.difficulty, t.points, t.content, t.created_at
+       FROM tasks t
+       JOIN node_tasks nt ON t.id = nt.task_id
+       WHERE nt.node_id = ?
+       ORDER BY t.id`,
+      [nodeId]
+    );
+    
+    return tasks;
   }
 
-  // 获取任务信息
-  async getTasks(nodeId) {
-    try {
-      const db = await this.getConnection();
-      const [rows] = await db.execute('SELECT * FROM tasks WHERE node_id = ?', [nodeId]);
-      return rows;
-    } catch (error) {
-      console.error('Error getting tasks:', error);
-      throw error;
-    }
+  /**
+   * 检查节点解锁状态
+   */
+  async checkNodeUnlockStatus(userId, nodeId) {
+    const db = await this.getConnection();
+    
+    // 获取节点信息
+    const node = await this.getSkillNode(nodeId);
+    if (!node) return false;
+    
+    // 如果没有父节点，默认是已解锁的
+    if (!node.parent_id) return true;
+    
+    // 检查父节点是否完成
+    const [parentProgress] = await db.execute(
+      'SELECT status FROM user_progress WHERE user_id = ? AND node_id = ? AND status = ?',
+      [userId, node.parent_id, 'completed']
+    );
+    
+    return parentProgress.length > 0;
   }
 
-  // 更新任务进度
-  async updateTaskProgress(userId, taskId, status, score = null) {
-    try {
-      const db = await this.getConnection();
-      
-      // 检查是否已存在进度记录
-      const [existing] = await db.execute(
-        'SELECT * FROM user_task_progress WHERE user_id = ? AND task_id = ?',
-        [userId, taskId]
-      );
-      
-      const now = new Date();
-      if (existing.length > 0) {
-        // 更新现有记录
-        await db.execute(
-          'UPDATE user_task_progress SET status = ?, score = ?, attempts = attempts + 1, updated_at = ? WHERE user_id = ? AND task_id = ?',
-          [status, score, now, userId, taskId]
-        );
-      } else {
-        // 创建新记录
-        await db.execute(
-          'INSERT INTO user_task_progress (user_id, task_id, status, score, attempts, created_at, updated_at) VALUES (?, ?, ?, ?, 1, ?, ?)',
-          [userId, taskId, status, score, now, now]
-        );
-      }
-      
-      return true;
-    } catch (error) {
-      console.error('Error updating task progress:', error);
-      throw error;
-    }
+  /**
+   * 更新用户进度
+   */
+  async updateUserProgress(userId, nodeId, status, score = null) {
+    const db = await this.getConnection();
+    
+    // 更新或插入用户进度
+    await db.execute(
+      `INSERT INTO user_progress (user_id, node_id, status, score, completed_at)
+       VALUES (?, ?, ?, ?, CASE WHEN ? = 'completed' THEN NOW() ELSE NULL END)
+       ON DUPLICATE KEY UPDATE 
+         status = VALUES(status), 
+         score = VALUES(score), 
+         completed_at = CASE WHEN VALUES(status) = 'completed' THEN NOW() ELSE completed_at END`,
+      [userId, nodeId, status, score, status]
+    );
   }
 
-  // 获取靶机配置
-  async getVMConfig(taskId) {
-    try {
-      const db = await this.getConnection();
-      const [rows] = await db.execute(
-        'SELECT * FROM vm_configs WHERE task_id = ?',
-        [taskId]
-      );
-      return rows.length > 0 ? rows[0] : null;
-    } catch (error) {
-      console.error('Error getting VM config:', error);
-      throw error;
-    }
+  /**
+   * 获取子节点列表
+   */
+  async getChildNodes(nodeId) {
+    const db = await this.getConnection();
+    const [children] = await db.execute(
+      'SELECT * FROM skill_nodes WHERE parent_id = ?',
+      [nodeId]
+    );
+    return children;
   }
 
-  // 保存任务评估结果
-  async saveTaskEvaluation(evaluationData) {
-    try {
-      const { submissionId, userId, taskId, score, status, errors = [], logs = '' } = evaluationData;
-      const db = await this.getConnection();
-      
-      await db.execute(
-        'INSERT INTO task_evaluations (submission_id, user_id, task_id, score, status, errors, logs, evaluated_at) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())',
-        [submissionId, userId, taskId, score, status, JSON.stringify(errors), logs]
-      );
-      
-      return true;
-    } catch (error) {
-      console.error('Error saving task evaluation:', error);
-      throw error;
-    }
+  /**
+   * 创建技能节点
+   */
+  async createSkillNode(nodeData) {
+    const db = await this.getConnection();
+    const { name, parent_id, description, difficulty, course_id, points_required } = nodeData;
+    
+    const [result] = await db.execute(
+      `INSERT INTO skill_nodes (name, parent_id, description, difficulty, course_id, points_required)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [name, parent_id || null, description, difficulty, course_id, points_required || null]
+    );
+    
+    return result.insertId;
+  }
+
+  /**
+   * 更新技能节点
+   */
+  async updateSkillNode(nodeId, updateData) {
+    const db = await this.getConnection();
+    
+    // 构建更新语句
+    const fields = Object.keys(updateData);
+    const values = Object.values(updateData);
+    const setClauses = fields.map(field => `${field} = ?`).join(', ');
+    
+    await db.execute(
+      `UPDATE skill_nodes SET ${setClauses} WHERE id = ?`,
+      [...values, nodeId]
+    );
+  }
+
+  /**
+   * 删除技能节点
+   */
+  async deleteSkillNode(nodeId) {
+    const db = await this.getConnection();
+    await db.execute('DELETE FROM skill_nodes WHERE id = ?', [nodeId]);
+  }
+
+  /**
+   * 检查节点是否可访问
+   */
+  async checkNodeAccessibility(userId, nodeId) {
+    // 结合解锁状态检查和权限检查
+    const isUnlocked = await this.checkNodeUnlockStatus(userId, nodeId);
+    
+    // 可以根据需要添加额外的权限检查
+    // 例如：检查用户是否有特定角色等
+    
+    return isUnlocked;
   }
 }
 

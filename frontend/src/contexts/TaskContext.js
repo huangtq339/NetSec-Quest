@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext } from 'react';
+import React, { createContext, useState, useContext, useMemo } from 'react';
 import axios from 'axios';
 import { message } from 'antd';
 import { useAuth } from './AuthContext';
@@ -168,8 +168,8 @@ export const TaskProvider = ({ children }) => {
     setTaskHistory([]);
   };
 
-  // 提供的值
-  const value = {
+  // 提供的值 - 使用useMemo优化渲染性能
+  const value = useMemo(() => ({
     tasks,
     currentTask,
     taskHistory,
@@ -183,7 +183,7 @@ export const TaskProvider = ({ children }) => {
     getTaskHint,
     getNextRecommendedTask,
     resetCurrentTask
-  };
+  }), [tasks, currentTask, taskHistory, isLoading]);
 
   return <TaskContext.Provider value={value}>{children}</TaskContext.Provider>;
 };

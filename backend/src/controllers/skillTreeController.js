@@ -1,27 +1,15 @@
 const { getDatabaseConnection } = require('../utils/database');
-const SkillTreeMySQLModel = require('../models/SkillTreeMySQLModel');
+const SkillTreeModel = require('../models/SkillTreeModel');
 
 class SkillTreeController {
   constructor() {
-    this.skillTreeModel = null;
-  }
-
-  // 初始化模型
-  async initialize() {
-    if (!this.skillTreeModel) {
-      const pool = getMySQLPool();
-      this.skillTreeModel = new SkillTreeMySQLModel(pool);
-    }
+    this.skillTreeModel = new SkillTreeModel();
   }
 
   // 获取所有课程
-  static async getCourses(req, res) {
+  async getCourses(req, res) {
     try {
-      // 使用getDatabaseConnection()替代直接使用MySQL连接池，支持SQLite
-      const db = await getDatabaseConnection();
-      const skillTreeModel = new SkillTreeMySQLModel(db);
-      const courses = await skillTreeModel.getCourses();
-      
+      const courses = await this.skillTreeModel.getCourses();
       return res.status(200).json({
         success: true,
         data: courses
@@ -37,19 +25,17 @@ class SkillTreeController {
   }
 
   // 获取技能树结构
-  static async getSkillTree(req, res) {
+  async getSkillTree(req, res) {
     try {
       const { courseId } = req.query;
-      const pool = getMySQLPool();
-      const skillTreeModel = new SkillTreeMySQLModel(pool);
       
       let skillTree;
       if (req.user) {
         // 已登录用户获取带进度的技能树
-        skillTree = await skillTreeModel.getUserSkillProgress(req.user.id, courseId);
+        skillTree = await this.skillTreeModel.getUserSkillProgress(req.user.id, courseId);
       } else {
         // 未登录用户获取基础技能树
-        skillTree = await skillTreeModel.buildSkillTree(courseId);
+        skillTree = await this.skillTreeModel.buildSkillTree(courseId);
       }
       
       return res.status(200).json({
@@ -67,14 +53,12 @@ class SkillTreeController {
   }
 
   // 获取技能节点详情
-  static async getSkillNode(req, res) {
+  async getNodeDetails(req, res) {
     try {
       const { nodeId } = req.params;
-      const pool = getMySQLPool();
-      const skillTreeModel = new SkillTreeMySQLModel(pool);
       
       // 获取节点信息
-      const node = await skillTreeModel.getSkillNode(nodeId);
+      const node = await this.skillTreeModel.getSkillNode(nodeId);
       
       if (!node) {
         return res.status(404).json({
@@ -86,19 +70,12 @@ class SkillTreeController {
       let nodeData = { ...node };
       
       // 获取节点关联的任务
-      nodeData.tasks = await skillTreeModel.getNodeTasks(nodeId);
+      nodeData.tasks = await this.skillTreeModel.getNodeTasks(nodeId);
       
       // 如果用户已登录，获取用户在该节点的进度
       if (req.user) {
-        const unlockStatus = await skillTreeModel.checkNodeUnlockStatus(req.user.id, nodeId);
-        
-        const [progress] = await pool.execute(
-          'SELECT status, score, completed_at FROM user_progress WHERE user_id = ? AND node_id = ?',
-          [req.user.id, nodeId]
-        );
-        
-        nodeData.userProgress = progress.length > 0 ? progress[0] : null;
-        nodeData.isUnlocked = unlockStatus;
+        const isAccessible = await this.skillTreeModel.checkNodeAccessibility(req.user.id, nodeId);
+        nodeData.isAccessible = isAccessible;
       }
       
       return res.status(200).json({
@@ -116,7 +93,7 @@ class SkillTreeController {
   }
 
   // 更新用户技能节点进度
-  static async updateProgress(req, res) {
+  async updateProgress(req, res) {
     try {
       const userId = req.user.id;
       const { nodeId } = req.params;
@@ -204,7 +181,7 @@ class SkillTreeController {
   }
 
   // 获取用户整体进度
-  static async getUserProgress(req, res) {
+  async getUserProgress(req, res) {
     try {
       const userId = req.user.id;
       const pool = getMySQLPool();
@@ -245,7 +222,7 @@ class SkillTreeController {
   }
 
   // 获取推荐的下一个学习节点
-  static async getRecommendedNodes(req, res) {
+  async getRecommendedNodes(req, res) {
     try {
       const userId = req.user.id;
       const pool = getMySQLPool();
@@ -288,7 +265,7 @@ class SkillTreeController {
   }
 
   // 管理员：创建新技能节点
-  static async createSkillNode(req, res) {
+  async createNode(req, res) {
     try {
       const { name, parent_id, description, difficulty, course_id, points_required } = req.body;
       
@@ -356,7 +333,7 @@ class SkillTreeController {
   }
 
   // 管理员：更新技能节点
-  static async updateSkillNode(req, res) {
+  async updateNode(req, res) {
     try {
       const { nodeId } = req.params;
       const updateData = req.body;
@@ -391,7 +368,7 @@ class SkillTreeController {
   }
 
   // 管理员：删除技能节点
-  static async deleteSkillNode(req, res) {
+  async deleteNode(req, res) {
     try {
       const { nodeId } = req.params;
       const pool = getMySQLPool();

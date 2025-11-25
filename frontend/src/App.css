@@ -5,6 +5,30 @@
   min-height: 100vh;
 }
 
+.app-content {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.full-width {
+  width: 100%;
+}
+
+.app-layout .app-content {
+  min-height: calc(100vh - 64px); /* 减去header高度 */
+}
+
+.app-layout .app-content.full-width {
+  margin-left: 0 !important;
+}
+
 /* 响应式布局调整 */
 @media (max-width: 576px) {
   .app-layout .ant-layout-sider {

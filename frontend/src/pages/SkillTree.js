@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { Card, Spin, Select, Typography, Empty, Button, Space, Tag } from 'antd';
 import { useSearchParams } from 'react-router-dom';
 import { useSkillTree } from '../contexts/SkillTreeContext';
-import { useTask } from '../contexts/TaskContext';
 import { useAuth } from '../contexts/AuthContext';
 import SkillTreeVisualization from '../components/SkillTreeVisualization';
 import './SkillTree.css';
@@ -14,13 +13,12 @@ const SkillTree = () => {
   const [searchParams] = useSearchParams();
   const [selectedCourseId, setSelectedCourseId] = useState(null);
   const { courses, skillTree, userProgress, selectedNode, loadSkillTree, getNodeTasks, isLoading } = useSkillTree();
-  const { getTasks } = useTask();
   const { isAuthenticated } = useAuth();
   const [nodeTasks, setNodeTasks] = useState([]);
 
   // 初始化时加载课程和技能树
   useEffect(() => {
-    const courseId = searchParams.get('course') || selectedCourseId || (courses.length > 0 ? courses[0].id : null);
+    const courseId = searchParams.get('course') || selectedCourseId || (Array.isArray(courses) && courses.length > 0 ? courses[0].id : null);
     if (courseId) {
       setSelectedCourseId(courseId);
       loadSkillTree(courseId);
@@ -93,7 +91,7 @@ const SkillTree = () => {
               onChange={setSelectedCourseId}
               style={{ width: 200, marginLeft: 16 }}
             >
-              {courses.map(course => (
+              {(Array.isArray(courses) ? courses : []).map(course => (
                 <Option key={course.id} value={course.id}>{course.name}</Option>
               ))}
             </Select>

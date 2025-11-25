@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
+import React, { createContext, useState, useEffect, useContext, useMemo } from 'react';
 import axios from 'axios';
 import { message } from 'antd';
 import { useAuth } from './AuthContext';
@@ -14,6 +14,9 @@ export const SkillTreeProvider = ({ children }) => {
   const [userProgress, setUserProgress] = useState({});
   const [selectedNode, setSelectedNode] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  // 添加缓存以避免重复请求
+  const [skillTreeCache, setSkillTreeCache] = useState(new Map());
+  const [nodeTasksCache, setNodeTasksCache] = useState(new Map());
 
   // 加载课程列表
   const loadCourses = async () => {
@@ -30,20 +33,36 @@ export const SkillTreeProvider = ({ children }) => {
     }
   };
 
-  // 加载技能树数据
+  // 加载技能树数据 - 添加缓存机制
   const loadSkillTree = async (courseId) => {
     try {
+      // 检查缓存
+      if (skillTreeCache.has(courseId)) {
+        const cachedData = skillTreeCache.get(courseId);
+        setSkillTree(cachedData);
+        
+        // 如果用户已登录，同时加载用户进度
+        if (isAuthenticated) {
+          await loadUserProgress(courseId);
+        }
+        
+        return cachedData;
+      }
+      
       setIsLoading(true);
-      // 更正API路径，匹配后端实际配置
       const response = await axios.get(`/api/skill-tree/tree?courseId=${courseId}`);
-      setSkillTree(response.data);
+      const treeData = response.data;
+      setSkillTree(treeData);
+      
+      // 更新缓存
+      setSkillTreeCache(prev => new Map(prev).set(courseId, treeData));
       
       // 如果用户已登录，同时加载用户进度
       if (isAuthenticated) {
         await loadUserProgress(courseId);
       }
       
-      return response.data;
+      return treeData;
     } catch (error) {
       console.error('加载技能树失败:', error);
       message.error('加载技能树失败');
@@ -53,20 +72,21 @@ export const SkillTreeProvider = ({ children }) => {
     }
   };
 
-  // 加载用户进度
+  // 加载用户进度 - 修复API路径
   const loadUserProgress = async (courseId) => {
+    if (!isAuthenticated) return {};
+    
     try {
-      // 使用axios默认的Authorization头配置，不再直接从localStorage获取token
-      const response = await axios.get('/api/skill-tree/progress', {
-        params: { courseId } // 添加courseId参数
-      });
+      const response = await axios.get(`/api/skill-tree/progress?courseId=${courseId}`);
       setUserProgress(response.data);
       return response.data;
     } catch (error) {
       console.error('加载用户进度失败:', error);
       if (error.response?.status === 401) {
-        // 未授权错误，可能需要重新登录
         message.error('会话已过期，请重新登录');
+      } else if (error.response?.status === 404) {
+        // 如果没有进度记录，设置为空对象
+        setUserProgress({});
       }
       return {};
     }
@@ -97,18 +117,26 @@ export const SkillTreeProvider = ({ children }) => {
     }
   };
 
-  // 获取节点任务列表
+  // 获取节点任务列表 - 添加缓存
   const getNodeTasks = async (nodeId) => {
     try {
-      // 使用axios默认的Authorization头配置
-      const response = await axios.get(`/api/skills/nodes/${nodeId}`);
-      return response.data;
+      // 检查缓存
+      if (nodeTasksCache.has(nodeId)) {
+        return nodeTasksCache.get(nodeId);
+      }
+      
+      // 匹配后端实际路由
+      const response = await axios.get(`/api/skill-tree/nodes/${nodeId}`);
+      const tasks = response.data || [];
+      
+      // 更新缓存
+      setNodeTasksCache(prev => new Map(prev).set(nodeId, tasks));
+      
+      return tasks;
     } catch (error) {
       console.error('获取节点任务失败:', error);
       if (error.response?.status === 401) {
         message.error('会话已过期，请重新登录');
-      } else {
-        message.error('获取任务列表失败，请稍后重试');
       }
       return [];
     }
@@ -155,11 +183,13 @@ export const SkillTreeProvider = ({ children }) => {
       loadUserProgress(skillTree.courseId);
     } else if (!isAuthenticated) {
       setUserProgress({});
+      // 清除缓存以确保数据安全
+      setNodeTasksCache(new Map());
     }
   }, [isAuthenticated, skillTree?.courseId]);
 
-  // 提供的值
-  const value = {
+  // 提供的值 - 使用useMemo优化渲染性能
+  const value = useMemo(() => ({
     courses,
     skillTree,
     userProgress,
@@ -173,7 +203,7 @@ export const SkillTreeProvider = ({ children }) => {
     getRecommendedNodes,
     getUserOverallProgress,
     setSelectedNode
-  };
+  }), [courses, skillTree, userProgress, selectedNode, isLoading]);
 
   return <SkillTreeContext.Provider value={value}>{children}</SkillTreeContext.Provider>;
 };

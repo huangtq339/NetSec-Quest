@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
+import React, { createContext, useState, useEffect, useContext, useMemo } from 'react';
 import axios from 'axios';
 import { message } from 'antd';
 
@@ -41,7 +41,7 @@ export const AuthProvider = ({ children }) => {
           }
         }
         
-        // 即使没有token，也要确保Authorization头被正确设置或移除
+        // 根据是否有token设置不同的行为
         if (token) {
           // 设置axios默认headers
           axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
@@ -76,8 +76,10 @@ export const AuthProvider = ({ children }) => {
               localStorage.removeItem('token');
               localStorage.removeItem('tokenExpiry');
               sessionStorage.removeItem('token');
+
               delete axios.defaults.headers.common['Authorization'];
               setIsAuthenticated(false);
+              setUser(null);
             } else {
               // 其他错误（如500服务器错误）不清除token，保留登录状态
               // 静默处理内部错误，不向用户显示任何提示
@@ -93,13 +95,14 @@ export const AuthProvider = ({ children }) => {
           setIsAuthenticated(false);
         }
       } catch (error) {
-        console.error('认证初始化失败:', error);
+        console.error('认证初始化错误:', error);
         // 清除所有认证信息
         localStorage.removeItem('token');
         localStorage.removeItem('tokenExpiry');
         sessionStorage.removeItem('token');
         delete axios.defaults.headers.common['Authorization'];
         setIsAuthenticated(false);
+        setUser(null);
       } finally {
         setIsLoading(false);
       }
@@ -346,8 +349,8 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // 提供的值
-  const value = {
+  // 提供的值 - 使用useMemo优化渲染性能
+  const value = useMemo(() => ({
     user,
     isAuthenticated,
     isLoading,
@@ -357,7 +360,7 @@ export const AuthProvider = ({ children }) => {
     updateProfile,
     sendVerificationCode,
     loginWithCode
-  };
+  }), [user, isAuthenticated, isLoading]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
