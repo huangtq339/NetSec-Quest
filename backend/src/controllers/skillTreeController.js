@@ -1,4 +1,4 @@
-const { getDatabaseConnection } = require('../utils/database');
+const { getMySQLPool } = require('../utils/database');
 const SkillTreeModel = require('../models/SkillTreeModel');
 
 class SkillTreeController {

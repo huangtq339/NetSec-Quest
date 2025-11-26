@@ -5,6 +5,11 @@
   min-height: 100vh;
 }
 
+/* 移除Ant Design默认的24px padding */
+.ant-layout-content {
+  padding: 0 !important;
+}
+
 .app-content {
   min-height: 100vh;
   display: flex;
@@ -39,7 +44,7 @@
   
   .app-layout .ant-layout-content {
     margin-left: 0;
-    padding: 16px;
+    padding: 0;
   }
 }
 

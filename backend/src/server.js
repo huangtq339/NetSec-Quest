@@ -5,7 +5,7 @@ const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 const compression = require('compression');
 const config = require('../config/config');
-const { initializeDatabase, getDatabaseConnection, closeDatabaseConnections } = require('./utils/database');
+const { initializeDatabase, getMySQLPool, closeDatabaseConnections } = require('./utils/database');
 const routes = require('./routes');
 const targetRoutes = require('./routes/targetRoutes');
 const { initializeTeamRoutes } = require('./routes/teamRoutes');
@@ -71,8 +71,8 @@ async function startServer() {
     // 初始化数据库
     await initializeDatabase();
     
-    // 获取数据库连接
-    const db = await getDatabaseConnection();
+    // 获取数据库连接池
+    const db = await getMySQLPool();
     
     // 初始化并注册团队和社交路由（将数据库连接传递给路由）
     app.use('/api/teams', initializeTeamRoutes(db));

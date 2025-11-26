@@ -33,10 +33,7 @@ const createMySQLPool = async () => {
   }
 };
 
-// 获取数据库连接
-const getDatabaseConnection = () => {
-  return getMySQLPool();
-};
+// 删除冗余函数，直接使用getMySQLPool
 
 // 获取MySQL连接池
 const getMySQLPool = () => {
@@ -73,7 +70,6 @@ const closeDatabaseConnections = async () => {
 
 module.exports = {
   initializeDatabase,
-  getDatabaseConnection,
   getMySQLPool,
   closeDatabaseConnections
 };

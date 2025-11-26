@@ -14,7 +14,6 @@ const Header = () => {
   
   // 调试：打印用户数据结构和头像显示相关字段
   useEffect(() => {
-    console.log('当前用户数据:', user);
     if (user) {
       // 找出可用的姓名字段
     }

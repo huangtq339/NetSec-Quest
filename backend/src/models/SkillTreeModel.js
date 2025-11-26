@@ -1,4 +1,4 @@
-const { getDatabaseConnection } = require('../utils/database');
+const { getMySQLPool } = require('../utils/database');
 
 /**
  * 技能树模型 - 合并版
@@ -15,7 +15,7 @@ class SkillTreeModel {
    */
   async getConnection() {
     if (!this.db) {
-      return await getDatabaseConnection();
+      return await getMySQLPool();
     }
     return this.db;
   }
