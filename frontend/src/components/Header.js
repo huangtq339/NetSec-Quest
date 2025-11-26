@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Layout, Menu, Avatar, Dropdown, Button, Badge, Typography, Space } from 'antd';
+import { Layout, Menu, Avatar, Dropdown, Button, Badge, Typography, Space, message } from 'antd';
 import { UserOutlined, BellOutlined, HomeOutlined, TrophyOutlined, LogoutOutlined, SettingOutlined, BookOutlined } from '@ant-design/icons';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -48,27 +48,44 @@ const Header = () => {
     return displayName ? displayName.slice(-1) : 'U';
   };
   
+  // 处理未登录用户点击导航项
+  const handleNavClick = (e) => {
+    if (!isAuthenticated) {
+      e.preventDefault();
+      e.stopPropagation();
+      message.warning('请先登录后再访问');
+    }
+  };
+
   // 导航菜单项配置
   const menuItems = [
     {
       key: '/skill-tree',
       icon: <HomeOutlined />,
-      label: <Link to="/skill-tree">技能树</Link>
+      label: isAuthenticated ? 
+        <Link to="/skill-tree">技能树</Link> : 
+        <span onClick={handleNavClick}>技能树</span>
     },
     {
       key: '/dashboard',
       icon: <TrophyOutlined />,
-      label: <Link to="/dashboard">仪表盘</Link>
+      label: isAuthenticated ? 
+        <Link to="/dashboard">仪表盘</Link> : 
+        <span onClick={handleNavClick}>仪表盘</span>
     },
     {
       key: '/rankings',
       icon: <TrophyOutlined />,
-      label: <Link to="/rankings">排行榜</Link>
+      label: isAuthenticated ? 
+        <Link to="/rankings">排行榜</Link> : 
+        <span onClick={handleNavClick}>排行榜</span>
     },
     {
       key: '/notifications',
       icon: <BellOutlined />,
-      label: <Link to="/notifications">通知</Link>
+      label: isAuthenticated ? 
+        <Link to="/notifications">通知</Link> : 
+        <span onClick={handleNavClick}>通知</span>
     }
   ];
 
@@ -116,12 +133,21 @@ const Header = () => {
   return (
     <div className="header-container">
       <div className="header-left">
-        <Link to="/" className="logo">
-          <Title level={3} className="logo-title">
-            <BookOutlined className="logo-icon" />
-            网安技能树
-          </Title>
-        </Link>
+        {isAuthenticated ? (
+          <Link to="/" className="logo">
+            <Title level={3} className="logo-title">
+              <BookOutlined className="logo-icon" />
+              网安技能树
+            </Title>
+          </Link>
+        ) : (
+          <span className="logo" onClick={handleNavClick} style={{ cursor: 'pointer' }}>
+            <Title level={3} className="logo-title">
+              <BookOutlined className="logo-icon" />
+              网安技能树
+            </Title>
+          </span>
+        )}
         <div className="nav-menu">
           <Menu mode="horizontal" selectedKeys={[window.location.pathname]} items={menuItems} />
         </div>
